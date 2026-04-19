@@ -137,6 +137,7 @@ class SelfAttention(nn.Module):
         # output projection
         self.c_proj = nn.Linear(params.enc_emb_dim, params.enc_emb_dim, bias=False)
         # regularization
+        self.attn_dropout = nn.Dropout(params.attention_dropout)
         self.resid_dropout = nn.Dropout(params.dropout)
         self.n_enc_heads = params.n_enc_heads
         self.enc_emb_dim = params.enc_emb_dim

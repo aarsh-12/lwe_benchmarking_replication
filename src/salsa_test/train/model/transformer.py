@@ -101,9 +101,6 @@ class MultiHeadAttention(nn.Module):
             nn.init.xavier_uniform_(self.out_lin.weight)
             nn.init.constant_(self.out_lin.bias, 0.0)
 
-        # Cache is set externally by TransformerLayer; initialise here to avoid AttributeError
-        self.cache = None
-
     def forward(self, input, mask, kv=None, use_cache=False, first_loop=True):
         """
         Optimized with Flash Attention (via SDPA)
@@ -149,22 +146,17 @@ class MultiHeadAttention(nn.Module):
             m_shape = (bs, 1, qlen, klen) if mask.dim() == 3 else (bs, 1, 1, klen)
             attn_mask = (mask == 0).view(m_shape)
 
-        # Normalized attention: L2-normalise q/k first (same as original),
-        # then pass the learned scalar as the SDPA scale factor.
-        # Without the F.normalize step the normalization is simply not applied.
-        if self.normalized_attention:
-            q = F.normalize(q, p=2, dim=-1)
-            k = F.normalize(k, p=2, dim=-1)
-            scale = self.attention_scale.item()  # learned scalar, replaces 1/sqrt(dk)
-        else:
-            scale = None  # SDPA uses 1/sqrt(dk) by default
+        # Apply normalization scale if required by verde params
+        # Note: Flash attention internally does the 1/sqrt(dk) scaling unless 
+        # scale is explicitly provided.
+        scale = self.attention_scale if self.normalized_attention else None
 
         # The core Flash Attention call
         context = F.scaled_dot_product_attention(
             q, k, v,
             attn_mask=attn_mask,
             dropout_p=self.dropout if self.training else 0.0,
-            is_causal=False,
+            is_causal=False, # verde masks already include causal logic if needed
             scale=scale
         )
 
@@ -307,7 +299,7 @@ class TransformerLayer(nn.Module):
             if self.is_decoder and src_enc is not None:
                 self.cross_attention.cache = cache
                 attn = self.cross_attention(
-                    tensor,
+                    output,
                     src_mask,
                     kv=src_enc,
                     use_cache=use_cache,

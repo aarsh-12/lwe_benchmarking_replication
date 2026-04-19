@@ -12,7 +12,7 @@ import os
 from logging import getLogger
 import torch
 from torch.nn.utils import clip_grad_norm_
-from src.salsa.train.optim import get_optimizer
+from src.salsa_test.train.optim import get_optimizer
 from src.utils import hour
 
 
@@ -59,7 +59,8 @@ class Trainer(object):
 
         self.uncompiled_model = self.model
         if params.compile:
-            self.model = torch.compile(self.model)
+            # changed the mode of compile to reduce-overhead
+            self.model = torch.compile(self.model, mode="reduce-overhead")
             logger.debug("Model compiled!")
 
         self.loss_fn = LOSS_FNS[params.angular_emb]()
@@ -74,14 +75,9 @@ class Trainer(object):
     def init_amp(self):
         """
         Initialize AMP optimizer.
-        bfloat16 has the same exponent range as float32, so it does NOT need
-        loss scaling. Enabling GradScaler for bf16 adds overhead and can even
-        cause NaNs in some PyTorch versions. Only enable it for float16.
         """
-        use_scaler = (
-            self.params.dtype == "float16" and self.params.device.type == "cuda"
-        )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=use_scaler)
+        enabled = self.params.dtype == "float16" and self.params.device.type == "cuda"
+        self.scaler = torch.cuda.amp.GradScaler(enabled=enabled)
         self.amp_ctx = torch.amp.autocast(
             device_type="cuda", dtype=getattr(torch, self.params.dtype)
         )

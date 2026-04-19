@@ -14,9 +14,9 @@ import time
 sys.path.append("./")
 
 from src.slurm import init_distributed_mode, init_signal_handler
-from src.salsa.train.evaluator import SecretRecovery
-from src.salsa.train import get_dataset, get_model, get_metrics
-from src.salsa.train.trainer import Trainer
+from src.salsa_test.train.evaluator import SecretRecovery
+from src.salsa_test.train import get_dataset, get_model, get_metrics
+from src.salsa_test.train.trainer import Trainer
 from src.utils import bool_flag, initialize_exp, load_params
 
 
@@ -78,7 +78,7 @@ def get_parser():
         "--timescale", type=int, default=40, help="How fast to decay the inv sqrt lr."
     )
     parser.add_argument(
-        "--dtype", default="bfloat16", choices=["float32", "float16", "bfloat16"]
+        "--dtype", default="float16", choices=["float32", "float16", "bfloat16"]
     )
 
     # Training args
@@ -203,6 +203,7 @@ if __name__ == "__main__":
     # generate parser / parse parameters
     parser = get_parser()
     params = parser.parse_args()
+    params.fp16 = params.dtype == "float16" # added this line to make dtype float16 for AMP
     params = load_params(params)
 
     # update seed to unix time (seconds)

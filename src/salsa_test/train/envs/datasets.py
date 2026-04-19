@@ -13,7 +13,7 @@ import os
 import numpy as np
 from logging import getLogger
 
-from src.salsa.train.envs.lattice import AngularEncoder, DigitEncoder
+from src.salsa_test.train.envs.lattice import AngularEncoder, DigitEncoder
 
 logger = getLogger()
 
@@ -64,7 +64,7 @@ class LWEDataset(Dataset):
             num_workers=self.params.workers,
             drop_last=False,
             shuffle=self.params.shuffle,
-            pin_memory=(self.params.workers > 0),   # pinned memory = faster GPU transfers
+            pin_memory=True,    #made pin_memory true
             persistent_workers=(self.params.workers > 0),
             collate_fn=self.collate_fn,
         )

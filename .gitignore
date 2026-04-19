@@ -1,8 +1,5 @@
 data/
-data/
-salsa_logs/
 *.npy
 *.pth
 __pycache__/
 .ipynb_checkpoints/
-cc_logs/
