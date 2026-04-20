@@ -1,76 +1,161 @@
 # LWE Benchmarking & Replication Wrapper
 
-This repository contains our attempt to improve the dataset generation and attack execution for Machine Learning-based cryptanalysis of the Learning with Errors (LWE) problem. 
+This repository contains our attempt to improve the dataset generation and attack execution for Machine Learning-based cryptanalysis of the Learning with Errors (LWE) problem.
 
 ## Acknowledgments and Core Codebase
 
 **This project is built entirely upon the foundational open-source release by Facebook Research.** All credit for the core ML architectures and attack mechanics belongs to the original authors.
 
-* **Original Repository:** [facebookresearch/LWE-benchmarking](https://github.com/facebookresearch/LWE-benchmarking/)
+- **Original Repository:** [facebookresearch/LWE-benchmarking](https://github.com/facebookresearch/LWE-benchmarking/)
 
 ---
 
 ## Environment Setup
 
-For the complete, step-by-step installation of the underlying models and dependencies, **please follow the setup instructions in the [official Facebook Research repository](https://github.com/facebookresearch/LWE-benchmarking/).**
+### Phase 1: Conda Environment Setup
 
-### Key Dependency Notes:
-1. **Conda:** It is highly recommended to use a fast Conda environment manager (like Miniconda) to handle the complex PyTorch and math dependencies without conflicts.
-2. **Flatter:** For the lattice-reduction post-processing steps, you will need to install **Flatter**. You can find the source code and build instructions here: [keeganryan/flatter](https://github.com/keeganryan/flatter).
+We would need to setup conda to resolve dependencies for the attacks to work.
+
+#### 1. Install Miniconda (If not already installed)
+
+Run these commands in your Linux terminal to download and install Miniconda from scratch:
+
+```bash
+# Create a directory for the installer
+mkdir -p ~/miniconda3
+
+# Download the latest Linux installer
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+
+# Run the installer silently
+bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+
+# Clean up the installation file
+rm -rf ~/miniconda3/miniconda.sh
+
+# Initialize conda for bash and zsh shells
+~/miniconda3/bin/conda init bash
+~/miniconda3/bin/conda init zsh
+```
+
+> ⚠️ **Important:** After running the above, **close and reopen your terminal** (or run `source ~/.bashrc`) to apply the Conda initialization. You should see `(base)` appear at the start of your command prompt.
+
+#### 2. Create the Lattice Environment
+
+Instead of installing packages manually, we will use the pre-configured environment file provided in the repository. This sets up the `lattice_env` with all necessary deep learning and math dependencies for the SALSA, Cool & Cruel, and uSVP attacks.
+
+```bash
+# Ensure you are in the root directory of the repository
+# Create the environment from the provided YAML file
+conda env create -f environment/environment.yml
+
+# Activate the environment
+conda activate lattice_env
+```
 
 ---
 
-## Usage Instructions: The Automation Pipeline
+### Phase 2: Installing Flatter (Lattice Reduction)
 
-Instead of running the complex base commands manually, you can use our helper scripts to generate data and launch attacks interactively.
+The post-processing phase of the attacks relies on `flatter`, a high-performance C++ library for lattice reduction.
 
-### Step 1: Generate the LWE Samples (Matrix A)
-Generate the uniform distribution matrix $A$. By default, the number of rows ($m$) is generally taken to be $4 \times n$, but can be adjusted to test different redundancy thresholds.
+Please follow the official installation and build instructions on the Flatter GitHub repository:
+
+- [keeganryan/flatter](https://github.com/keeganryan/flatter) — GitHub Repository
+
+> ⚠️ **Important:** After building `flatter`, ensure the executable is correctly symlinked or added to your system's `PATH` (e.g., `/usr/local/bin/`) so that it can be executed globally by typing `flatter` in the terminal.
+
+---
+
+## 🗄️ Data Generation Pipeline
+
+Instead of running complex base commands manually, we provide interactive helper scripts in the `scripts/` directory to generate data and launch attacks seamlessly.
+
+---
+
+### Step 1: Generate Matrix A
+
+The first step is to generate the uniform distribution matrix $A$. By default, the number of rows ($m$) is generally taken to be $4 \times n$, but this can be adjusted to test different redundancy thresholds.
 
 ```bash
 python3 scripts/generateA.py --N <n_val> --Q <q_val> --rows <num_rows>
 ```
-*Outputs to: `data/n{n_val}logq{logqval}/origA_n{n_val}logq{logqval}.npy`*
+
+📁 **Output:** `data/n{n_val}logq{logqval}/origA_n{n_val}logq{logqval}.npy`
+
+---
 
 ### Step 2: Preprocess the Dataset
-Generate the `data.prefix` files required for the Transformer model.
+
+The Transformer model requires data to be formatted into specific `data.prefix` files. This script handles that conversion.
 
 ```bash
-python3 scripts/run_prepoc.py 
+python3 scripts/run_prepoc.py
 ```
-* **Interactive Prompts:** The script will ask for necessary setup info.
-* **Reload Data:** Provide the path to the `.npy` file generated in Step 1.
-* **Continuous Generation:** This process runs infinitely to build massive datasets. Note your `dump_path`. Stop the process with `CTRL+C` once you have enough samples.
 
-*(Tip: Check the sample count in another terminal using `wc -l <dump_path>/data`)*
+- **Interactive Prompts:** The script will ask for necessary setup info.
+- **Reload Data:** Provide the absolute or relative path to the `.npy` file generated in Step 1.
+- **Continuous Generation:** This process runs in an infinite loop to build massive datasets required for ML training. Note the `dump_path` you provide. Stop the process safely with `CTRL + C` once enough samples are generated.
 
-### Step 3: Generate A and b (Task Formatting)
-Format the preprocessed data for your specific attack vector.
+> 💡 **Pro-Tip:** Check the sample count in another terminal using:
+> ```bash
+> wc -l <dump_path>/data.prefix
+> ```
+
+---
+
+### Step 3: Format the Task (A and b)
+
+This step formats the preprocessed data into specific target vectors (`train_A.npy`, `train_b.npy`, etc.) tailored for your chosen attack.
 
 ```bash
 python3 scripts/genAb.py
 ```
-* **RLWE:** Set to `0` for standard LWE.
-* **Actions:** * Type `secrets` if you are preparing for a standard **SALSA** attack.
-  * Type `describe` if you are targeting cruel bits for the **Cool & Cruel** attack.
-* Provide the `dump_path` you noted from Step 2.
 
-## Executing the Attacks
+- **RLWE:** Set to `0` for standard LWE attacks.
+- **Actions:**
+  - Type `secrets` if you are preparing data for a standard SALSA attack.
+  - Type `describe` if you want to learn number of cruel bits for the Cool & Cruel attack.
+- **Dump Path:** Provide the exact `dump_path` noted from Step 2.
 
-Once your dataset is fully generated and preprocessed, launch the attacks using our interactive runner scripts.
+---
 
-### 1. Run SALSA
+## ⚔️ Executing the Attacks
+
+Once your dataset is fully generated and preprocessed, you can launch the attacks. We provide interactive runners for standard architectures as well as optimized paths for consumer GPUs.
+
+---
+
+### 1. SALSA Attack (Standard)
+
+This runs the baseline encoder-only Transformer model for secret recovery.
 
 ```bash
 python3 scripts/run_salsa.py
 ```
-* **Task:** When prompted for the task, explicitly type `lwe`.
-* Follow the remaining interactive prompts to feed it your dataset path and ML parameters.
 
-### 2. Run Cool & Cruel
+- **Task:** When prompted for the task, explicitly type `lwe`.
+- Follow the remaining interactive prompts to provide your dataset path and ML hyperparameters.
+
+---
+
+### 2. SALSA Optimised (FlashAttention)
+
+This runs the optimized encoder-only Transformer model with FlashAttention for improved performance on consumer GPUs.
+
+```bash
+python3 scripts/run_salsa_opt.py
+```
+
+- Use similar parameters as the standard SALSA attack above.
+
+---
+
+### 3. Cool & Cruel Attack
+
+This attack attempts targeted bit recovery based on the cruel bits identified during preprocessing.
 
 ```bash
 python3 scripts/run_cc.py
 ```
-* Follow the instructions, ensuring you point it to the dataset generated with the `describe` action.
-* **Cruel Bits:** Ensure the number of cruel bits you input here exactly matches the number you specified during the `genAb.py` step.
+- **Cruel Bits:** When prompted, ensure the number of cruel bits you input exactly matches the number calculated and output during the `genAb.py` formatting step using describe as the actions.
