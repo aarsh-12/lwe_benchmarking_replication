@@ -64,7 +64,7 @@ class LWEDataset(Dataset):
             num_workers=self.params.workers,
             drop_last=False,
             shuffle=self.params.shuffle,
-            pin_memory=(self.params.workers > 0),   # pinned memory = faster GPU transfers
+            pin_memory=False,
             persistent_workers=(self.params.workers > 0),
             collate_fn=self.collate_fn,
         )

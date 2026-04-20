@@ -10,21 +10,21 @@ def main():
 
     # 1. Path Configuration
     # We use .resolve() to ensure the script finds the data regardless of where you are
-    proc_dump = get_input("Enter path of PREPROCESSED data", "./preproc_data")
-    out_dump = get_input("Enter path to STORE final samples", "./test_results")
+    proc_dump = get_input("Enter path of PREPROCESSED data (usually in data directory with apt directory used during preprocessing)", "./preproc_data")
+    out_dump = get_input("Enter path to STORE final samples (usually again in the data directory into a deeper folder)", "./test_results")
 
     # 2. Lattice Parameters
     n = get_input("Enter N", "80")
-    rlwe = get_input("Is this RLWE? (1 for Yes, 0 for No)", "1")
+    rlwe = get_input("Is this RLWE? (1 for Yes, 0 for No)", "0")
     
     # 3. Secret Distribution Parameters
     secret_type = get_input("Secret type (binary/ternary/gaussian)", "binary")
     min_h = get_input("Min Hamming Weight", "5")
     max_h = get_input("Max Hamming Weight", "6")
-    num_seeds = get_input("Number of secret seeds", "10")
+    num_seeds = get_input("Number of secret seeds (no. of secrets you wanna generate)", "10")
     
     # 4. Action
-    action = get_input("Action to perform (secrets/samples/all)", "secrets")
+    action = get_input("Action to perform (secrets/describe)", "secrets")
 
     # Construct the command
     command = [

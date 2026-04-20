@@ -8,17 +8,17 @@ def interactive_run():
     n = input("Enter N (e.g., 80): ") or "80"
     q = input("Enter Q (e.g., 113): ") or "113"
     
-    dump_path = input("Enter dump_path (default: ./preproc_data): ") or "./preproc_data"
+    dump_path = input("Enter dump_path (default: ./preproc_data) (adviced to store under data directory with apt folder name): ") or "./preproc_data"
     
     exp_name = input(f"Enter exp_name (default: R_A_{n}_7_debug): ") or f"R_A_{n}_7_debug"
     
-    workers = input("Enter num_workers (default: 5): ") or "5"
+    workers = input("Enter number of workers (default: 5): ") or "5"
     
     # Path to the data to reload
     default_data = f"./data/benchmark_paper_data/n80_logq7/origA_n80_logq7.npy"
-    reload_data = input(f"Enter reload_data path (default: {default_data}): ") or default_data
+    reload_data = input(f"Enter reload_data path(where the origA*.npy file is present) (default: {default_data}): ") or default_data
     
-    thresholds = input('Enter thresholds (default: "0.783,0.783001,0.7831"): ') or "0.783,0.783001,0.7831"
+    thresholds = input('Enter thresholds (default: "0.783,0.783001,0.7831") (lookup code to understand): ') or "0.783,0.783001,0.7831"
     
     lll_penalty = input("Enter lll_penalty (default: 10): ") or "10"
 

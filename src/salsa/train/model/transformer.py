@@ -75,7 +75,9 @@ def get_masks(slen, lengths, causal):
 class MultiHeadAttention(nn.Module):
     NEW_ID = itertools.count()
 
-    def __init__(self, n_heads, dim, src_dim, dropout, normalized_attention, xav_init=False):
+    def __init__(
+        self, n_heads, dim, src_dim, dropout, normalized_attention, xav_init=False
+    ):
         super().__init__()
         self.layer_id = next(MultiHeadAttention.NEW_ID)
         self.dim = dim
@@ -89,10 +91,10 @@ class MultiHeadAttention(nn.Module):
         self.k_lin = nn.Linear(src_dim, dim)
         self.v_lin = nn.Linear(src_dim, dim)
         self.out_lin = nn.Linear(dim, dim)
-
         if self.normalized_attention:
-            self.attention_scale = nn.Parameter(torch.tensor(1.0 / math.sqrt(dim // n_heads)))
-
+            self.attention_scale = nn.Parameter(
+                torch.tensor(1.0 / math.sqrt(dim // n_heads))
+            )
         if xav_init:
             gain = (1 / math.sqrt(2)) if self.src_dim == self.dim else 1.0
             nn.init.xavier_uniform_(self.q_lin.weight, gain=gain)
@@ -101,76 +103,81 @@ class MultiHeadAttention(nn.Module):
             nn.init.xavier_uniform_(self.out_lin.weight)
             nn.init.constant_(self.out_lin.bias, 0.0)
 
-        # Cache is set externally by TransformerLayer; initialise here to avoid AttributeError
-        self.cache = None
-
     def forward(self, input, mask, kv=None, use_cache=False, first_loop=True):
         """
-        Optimized with Flash Attention (via SDPA)
+        Self-attention (if kv is None)
+        or attention over source sentence (provided by kv).
+        Input is (bs, qlen, dim)
+        Mask is (bs, klen) (non-causal) or (bs, klen, klen)
         """
         assert not (use_cache and self.cache is None)
         bs, qlen, dim = input.size()
-        
         if kv is None:
             klen = qlen if not use_cache else self.cache["slen"] + qlen
         else:
             klen = kv.size(1)
-
+        assert dim == self.dim, "Dimensions do not match: %s input vs %s configured" % (
+            dim,
+            self.dim,
+        )
         n_heads = self.n_heads
         dim_per_head = dim // n_heads
+        mask_reshape = (bs, 1, qlen, klen) if mask.dim() == 3 else (bs, 1, 1, klen)
 
-        # 1. Projections: (bs, qlen, dim) -> (bs, n_heads, qlen, dim_per_head)
-        q = self.q_lin(input).view(bs, qlen, n_heads, dim_per_head).transpose(1, 2)
-        
+        def shape(x):
+            """projection"""
+            return x.view(bs, -1, self.n_heads, dim_per_head).transpose(1, 2)
+
+        def unshape(x):
+            """compute context"""
+            return (
+                x.transpose(1, 2).contiguous().view(bs, -1, self.n_heads * dim_per_head)
+            )
+
+        q = shape(self.q_lin(input))  # (bs, n_heads, qlen, dim_per_head)
         if kv is None:
-            k = self.k_lin(input).view(bs, qlen, n_heads, dim_per_head).transpose(1, 2)
-            v = self.v_lin(input).view(bs, qlen, n_heads, dim_per_head).transpose(1, 2)
-        else:
-            k = self.k_lin(kv).view(bs, -1, n_heads, dim_per_head).transpose(1, 2)
-            v = self.v_lin(kv).view(bs, -1, n_heads, dim_per_head).transpose(1, 2)
+            k = shape(self.k_lin(input))  # (bs, n_heads, qlen, dim_per_head)
+            v = shape(self.v_lin(input))  # (bs, n_heads, qlen, dim_per_head)
+        elif not use_cache or self.layer_id not in self.cache:
+            k = v = kv
+            k = shape(self.k_lin(k))  # (bs, n_heads, qlen, dim_per_head)
+            v = shape(self.v_lin(v))  # (bs, n_heads, qlen, dim_per_head)
 
-        # KV Caching Logic
         if use_cache:
             if self.layer_id in self.cache:
                 if kv is None and first_loop:
                     k_, v_ = self.cache[self.layer_id]
-                    k = torch.cat([k_, k], dim=2)
-                    v = torch.cat([v_, v], dim=2)
+                    k = torch.cat([k_, k], dim=2)  # (bs, n_heads, klen, dim_per_head)
+                    v = torch.cat([v_, v], dim=2)  # (bs, n_heads, klen, dim_per_head)
                 else:
                     k, v = self.cache[self.layer_id]
             self.cache[self.layer_id] = (k, v)
-
-        # Flash Attention via Scaled Dot Product Attention
-        # Mask conversion: Flash Attention expects a boolean mask where True = MASK OUT
-        # verde uses 0 for mask out, 1 for keep.
-        attn_mask = None
-        if mask is not None:
-            # Reshape mask to (bs, 1, qlen, klen) or (bs, 1, 1, klen)
-            m_shape = (bs, 1, qlen, klen) if mask.dim() == 3 else (bs, 1, 1, klen)
-            attn_mask = (mask == 0).view(m_shape)
-
-        # Normalized attention: L2-normalise q/k first (same as original),
-        # then pass the learned scalar as the SDPA scale factor.
-        # Without the F.normalize step the normalization is simply not applied.
         if self.normalized_attention:
             q = F.normalize(q, p=2, dim=-1)
             k = F.normalize(k, p=2, dim=-1)
-            scale = self.attention_scale.item()  # learned scalar, replaces 1/sqrt(dk)
+            q = q * self.attention_scale
         else:
-            scale = None  # SDPA uses 1/sqrt(dk) by default
+            q = q / math.sqrt(dim_per_head)  # (bs, n_heads, qlen, dim_per_head)
+        scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, qlen, klen)
+        mask = (
+            (mask == 0).view(mask_reshape).expand_as(scores)
+        )  # (bs, n_heads, qlen, klen)
+        scores.masked_fill_(mask, -float("inf"))  # (bs, n_heads, qlen, klen)
 
-        # The core Flash Attention call
-        context = F.scaled_dot_product_attention(
-            q, k, v,
-            attn_mask=attn_mask,
-            dropout_p=self.dropout if self.training else 0.0,
-            is_causal=False,
-            scale=scale
-        )
+        weights = F.softmax(scores.float(), dim=-1).type_as(
+            scores
+        )  # (bs, n_heads, qlen, klen)
+        weights = F.dropout(
+            weights, p=self.dropout, training=self.training
+        )  # (bs, n_heads, qlen, klen)
+        context = torch.matmul(weights, v)  # (bs, n_heads, qlen, dim_per_head)
+        context = unshape(context)  # (bs, qlen, dim)
 
-        # Reshape back to (bs, qlen, dim)
-        context = context.transpose(1, 2).contiguous().view(bs, qlen, dim)
+        if TransformerModel.STORE_OUTPUTS and not self.training:
+            self.outputs.append(weights.detach().cpu())
+
         return self.out_lin(context)
+
 
 class TransformerFFN(nn.Module):
     def __init__(

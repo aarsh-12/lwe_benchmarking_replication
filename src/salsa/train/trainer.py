@@ -74,14 +74,9 @@ class Trainer(object):
     def init_amp(self):
         """
         Initialize AMP optimizer.
-        bfloat16 has the same exponent range as float32, so it does NOT need
-        loss scaling. Enabling GradScaler for bf16 adds overhead and can even
-        cause NaNs in some PyTorch versions. Only enable it for float16.
         """
-        use_scaler = (
-            self.params.dtype == "float16" and self.params.device.type == "cuda"
-        )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=use_scaler)
+        enabled = self.params.dtype == "float16" and self.params.device.type == "cuda"
+        self.scaler = torch.cuda.amp.GradScaler(enabled=enabled)
         self.amp_ctx = torch.amp.autocast(
             device_type="cuda", dtype=getattr(torch, self.params.dtype)
         )

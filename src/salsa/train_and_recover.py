@@ -78,7 +78,7 @@ def get_parser():
         "--timescale", type=int, default=40, help="How fast to decay the inv sqrt lr."
     )
     parser.add_argument(
-        "--dtype", default="bfloat16", choices=["float32", "float16", "bfloat16"]
+        "--dtype", default="float16", choices=["float32", "float16", "bfloat16"]
     )
 
     # Training args

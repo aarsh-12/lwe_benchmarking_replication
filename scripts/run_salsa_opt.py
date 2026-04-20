@@ -40,7 +40,7 @@ def main():
 
     # Build the Command
     command = [
-        "python3", "src/salsa/train_and_recover.py",
+        "python3", "src/salsa_test/train_and_recover.py",
         "--data_path", data_path,
         "--exp_name", exp_name,
         "--secret_seed", secret_seed,

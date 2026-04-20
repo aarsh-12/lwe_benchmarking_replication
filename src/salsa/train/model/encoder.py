@@ -137,6 +137,7 @@ class SelfAttention(nn.Module):
         # output projection
         self.c_proj = nn.Linear(params.enc_emb_dim, params.enc_emb_dim, bias=False)
         # regularization
+        self.attn_dropout = nn.Dropout(params.attention_dropout)
         self.resid_dropout = nn.Dropout(params.dropout)
         self.n_enc_heads = params.n_enc_heads
         self.enc_emb_dim = params.enc_emb_dim
@@ -156,19 +157,10 @@ class SelfAttention(nn.Module):
 
         # self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         # manual implementation of attention
-        
-        #Aarsh_start
-
-        y = F.scaled_dot_product_attention(
-            q, k, v,
-            dropout_p=self.dropout if self.training else 0.0,
-            is_causal=False # LWE is not autoregressive
-        )
-
-        #Aarsh_end
-
-
-
+        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        att = F.softmax(att, dim=-1)
+        att = self.attn_dropout(att)
+        y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         # re-assemble all head outputs side by side
         y = y.transpose(1, 2).contiguous().view(B, T, C)
 
