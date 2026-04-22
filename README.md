@@ -42,7 +42,7 @@ rm -rf ~/miniconda3/miniconda.sh
 
 #### 2. Create the Lattice Environment
 
-Instead of installing packages manually, we will use the pre-configured environment file provided in the repository. This sets up the `lattice_env` with all necessary deep learning and math dependencies for the SALSA, Cool & Cruel, and uSVP attacks.
+Instead of installing packages manually, we will use the pre-configured environment file provided in the repository. This sets up the `lattice_env` with all necessary deep learning and math dependencies for the SALSA, Cool & Cruel, and uSVP attacks. This step may be slow.
 
 ```bash
 # Ensure you are in the root directory of the repository
@@ -63,6 +63,8 @@ Please follow the official installation and build instructions on the Flatter Gi
 
 - [keeganryan/flatter](https://github.com/keeganryan/flatter) — GitHub Repository
 
+Clone the repository and run the 6 commands mentioned in its README under Installation Guidelines. Install any dependancies it asks you to install.
+
 > ⚠️ **Important:** After building `flatter`, ensure the executable is correctly symlinked or added to your system's `PATH` (e.g., `/usr/local/bin/`) so that it can be executed globally by typing `flatter` in the terminal.
 
 ---
@@ -75,10 +77,10 @@ Instead of running complex base commands manually, we provide interactive helper
 
 ### Step 1: Generate Matrix A
 
-The first step is to generate the uniform distribution matrix $A$. By default, the number of rows ($m$) is generally taken to be $4 \times n$, but this can be adjusted to test different redundancy thresholds.
+The first step is to generate the uniform distribution matrix $A$. Usually, the number of rows ($m$) is generally taken to be $4 \times n$, but this can be adjusted to test different redundancy thresholds.
 
 ```bash
-python3 scripts/generateA.py --N <n_val> --Q <q_val> --rows <num_rows>
+python3 scripts/generate_A.py --N <n_val> --Q <q_val> --rows <num_rows>
 ```
 
  **Output:** `data/n{n_val}logq{logqval}/origA_n{n_val}logq{logqval}.npy`
@@ -90,12 +92,13 @@ python3 scripts/generateA.py --N <n_val> --Q <q_val> --rows <num_rows>
 The Transformer model requires data to be formatted into specific `data.prefix` files. This script handles that conversion.
 
 ```bash
-python3 scripts/run_prepoc.py
+python3 scripts/run_preproc.py
 ```
 
 - **Interactive Prompts:** The script will ask for necessary setup info.
 - **Reload Data:** Provide the absolute or relative path to the `.npy` file generated in Step 1.
-- **Continuous Generation:** This process runs in an infinite loop to build massive datasets required for ML training. Note the `dump_path` you provide. Stop the process safely with `CTRL + C` once enough samples are generated.
+- **Continuous Generation:** This process runs in an infinite loop to build massive datasets required for ML training. Stop the process safely with `CTRL + C` once enough samples are generated.
+- **Dump_path:**  Note the `dump_path` you provide. Its advised to just use the data/n*_logq* directory.
 
 >  **Pro-Tip:** Check the sample count in another terminal using:
 > ```bash
@@ -116,9 +119,11 @@ python3 scripts/genAb.py
 - **Actions:**
   - Type `secrets` if you are preparing data for a standard SALSA attack.
   - Type `describe` if you want to learn number of cruel bits for the Cool & Cruel attack.
-- **Dump Path:** Provide the exact `dump_path` noted from Step 2.
-
+- **Dump Path:** Its advised to create an additional folder like a 'ready' folder in the data/n**_logq*/ directory and use that.
+- **Processed Dump Path:** Use the <experiment_name> folder from the last step in the data/n**_logq*/ directory.
 ---
+
+Keep in mind the scripts are data path sensitive and will only work properly if you use the correct directory structure.
 
 ## Executing the Attacks
 
