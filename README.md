@@ -67,7 +67,7 @@ Please follow the official installation and build instructions on the Flatter Gi
 
 ---
 
-## 🗄️ Data Generation Pipeline
+##  Data Generation Pipeline
 
 Instead of running complex base commands manually, we provide interactive helper scripts in the `scripts/` directory to generate data and launch attacks seamlessly.
 
@@ -81,7 +81,7 @@ The first step is to generate the uniform distribution matrix $A$. By default, t
 python3 scripts/generateA.py --N <n_val> --Q <q_val> --rows <num_rows>
 ```
 
-📁 **Output:** `data/n{n_val}logq{logqval}/origA_n{n_val}logq{logqval}.npy`
+ **Output:** `data/n{n_val}logq{logqval}/origA_n{n_val}logq{logqval}.npy`
 
 ---
 
@@ -97,7 +97,7 @@ python3 scripts/run_prepoc.py
 - **Reload Data:** Provide the absolute or relative path to the `.npy` file generated in Step 1.
 - **Continuous Generation:** This process runs in an infinite loop to build massive datasets required for ML training. Note the `dump_path` you provide. Stop the process safely with `CTRL + C` once enough samples are generated.
 
-> 💡 **Pro-Tip:** Check the sample count in another terminal using:
+>  **Pro-Tip:** Check the sample count in another terminal using:
 > ```bash
 > wc -l <dump_path>/data.prefix
 > ```
@@ -120,7 +120,7 @@ python3 scripts/genAb.py
 
 ---
 
-## ⚔️ Executing the Attacks
+## Executing the Attacks
 
 Once your dataset is fully generated and preprocessed, you can launch the attacks. We provide interactive runners for standard architectures as well as optimized paths for consumer GPUs.
 
